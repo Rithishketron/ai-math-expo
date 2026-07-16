@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Mathematics Behind Artificial Intelligence — Department of Mathematics</title>
+<meta name="description" content="An interactive exhibition exploring the mathematics that powers artificial intelligence.">
+
+<!-- Fonts: Fraunces (display, character-driven serif) + Inter (body) + JetBrains Mono (data/equation labels) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<style>
+/* ============================================================
+   0. TOKENS — design system for the exhibition
+   ============================================================ */
+:root{
+  --bg:        #0a0e1a;
+  --bg-2:      #0f1526;
+  --bg-3:      #141b30;
+  --ink:       #f4f2ec;
+  --muted:     #93a0bb;
+  --muted-2:   #5f6b85;
+  --gold:      #f2c14e;
+  --gold-dim:  #a8863b;
+  --violet:    #7c5cff;
+  --teal:      #22d3b6;
+  --line:      rgba(244,242,236,0.09);
+  --line-2:    rgba(244,242,236,0.15);
+  --glass:     rgba(244,242,236,0.035);
+  --glass-2:   rgba(244,242,236,0.06);
+  --shadow:    0 20px 60px rgba(0,0,0,0.45);
+
+  --display:   'Fraunces', serif;
+  --body:      'Inter', sans-serif;
+  --mono:      'JetBrains Mono', monospace;
+
+  --container: 1140px;
+  --radius:    18px;
+  --ease:      cubic-bezier(.22,.9,.32,1);
+}
+
+*,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
+html{ scroll-behavior:smooth; }
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior:auto; }
+  *{ animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; scroll-behavior:auto !important; }
+}
+
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--body);
+  line-height:1.6;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+img{ max-width:100%; display:block; }
+a{ color:inherit; text-decoration:none; }
+button{ font-family:inherit; cursor:pointer; }
+::selection{ background:var(--gold); color:var(--bg); }
+
+/* subtle grid across whole page */
+body::before{
+  content:'';
+  position:fixed; inset:0;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size:64px 64px;
+  mask-image:radial-gradient(ellipse 90% 70% at 50% 20%, black 40%, transparent 85%);
+  opacity:0.5;
+  pointer-events:none;
+  z-index:0;
+}
+
+.wrap{ max-width:var(--container); margin:0 auto; padding:0 24px; }
+.eyebrow{
+  font-family:var(--mono);
+  font-size:0.72rem;
+  letter-spacing:0.18em;
+  text-transform:uppercase;
+  color:var(--gold);
+  display:flex; align-items:center; gap:10px;
+  margin-bottom:18px;
+}
+.eyebrow::before{ content:''; width:22px; height:1px; background:var(--gold); display:inline-block; }
+
+h1,h2,h3{ font-family:var(--display); font-weight:600; letter-spacing:-0.01em; }
+
+.section-head{ max-width:640px; margin-bottom:56px; }
+.section-head h2{ font-size:clamp(1.9rem, 4vw, 2.8rem); line-height:1.12; margin-bottom:16px; }
+.section-head p{ color:var(--muted); font-size:1.05rem; max-width:560px; }
+
+section{ position:relative; padding:120px 0; z-index:1; }
+@media (max-width:768px){ section{ padding:80px 0; } }
+
+/* ============================================================
+   1. LOADING SCREEN
+   ============================================================ */
+#loader{
+  position:fixed; inset:0; z-index:9999;
+  background:var(--bg);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:22px;
+  transition:opacity 0.7s var(--ease), visibility 0.7s var(--ease);
+}
+#loader.hidden{ opacity:0; visibility:hidden; pointer-events:none; }
+.loader-glyph{
+  font-family:var(--display);
+  font-size:2.4rem;
+  color:var(--gold);
+  animation:loaderPulse 1.6s ease-in-out infinite;
+}
+@keyframes loaderPulse{ 0%,100%{ opacity:0.35; transform:scale(0.94);} 50%{ opacity:1; transform:scale(1);} }
+.loader-bar{ width:200px; height:2px; background:var(--line-2); border-radius:2px; overflow:hidden; }
+.loader-bar-fill{ height:100%; width:0%; background:linear-gradient(90deg,var(--violet),var(--gold)); transition:width 0.25s ease; }
+.loader-label{ font-family:var(--mono); font-size:0.72rem; letter-spacing:0.16em; color:var(--muted-2); text-transform:uppercase; }
+
+/* ============================================================
+   2. SCROLL PROGRESS + NAV
+   ============================================================ */
+#scroll-progress{
+  position:fixed; top:0; left:0; height:2px; width:0%;
+  background:linear-gradient(90deg,var(--violet),var(--gold));
+  z-index:1001;
+  transition:width 0.1s linear;
+}
+
+.navbar{
+  position:fixed; top:18px; left:50%; transform:translateX(-50%);
+  z-index:1000;
+  width:min(94%, 980px);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 20px;
+  background:rgba(15,21,38,0.65);
+  backdrop-filter:blur(16px) saturate(140%);
+  -webkit-backdrop-filter:blur(16px) saturate(140%);
+  border:1px solid var(--line-2);
+  border-radius:100px;
+  box-shadow:0 10px 40px rgba(0,0,0,0.35);
+}
+.nav-brand{ display:flex; align-items:center; gap:10px; font-family:var(--mono); font-size:0.8rem; letter-spacing:0.02em; white-space:nowrap; }
+.nav-brand i{ color:var(--gold); }
+.nav-links{ display:flex; align-items:center; gap:2px; list-style:none; }
+.nav-links a{
+  font-size:0.82rem; color:var(--muted); padding:8px 14px; border-radius:100px;
+  transition:color 0.25s var(--ease), background 0.25s var(--ease);
+  white-space:nowrap;
+}
+.nav-links a:hover{ color:var(--ink); }
+.nav-links a.active{ color:var(--bg); background:var(--gold); font-weight:600; }
+.nav-toggle{ display:none; background:none; border:none; color:var(--ink); font-size:1.2rem; }
+
+@media (max-width:980px){
+  .nav-links{ display:none; }
+  .nav-toggle{ display:block; }
+}
+
+#mobile-menu{
+  position:fixed; inset:0; z-index:999;
+  background:rgba(10,14,26,0.98);
+  backdrop-filter:blur(10px);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+  opacity:0; visibility:hidden; transform:translateY(-12px);
+  transition:opacity 0.35s var(--ease), transform 0.35s var(--ease), visibility 0.35s;
+}
+#mobile-menu.open{ opacity:1; visibility:visible; transform:translateY(0); }
+#mobile-menu a{ font-family:var(--display); font-size:1.5rem; padding:14px 0; color:var(--muted); }
+#mobile-menu a.active{ color:var(--gold); }
+#mobile-menu-close{ position:absolute; top:26px; right:26px; background:none; border:none; color:var(--ink); font-size:1.4rem; }
+
+/* ============================================================
+   3. CANVAS BACKDROP (signature element)
+   ============================================================ */
+#bg-canvas{ position:fixed; inset:0; z-index:0; width:100%; height:100%; opacity:0.55; }
+
+/* ============================================================
+   4. HERO
+   ============================================================ */
+.hero{
+  min-height:100svh;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  text-align:center; position:relative; padding:140px 24px 80px;
+}
+.hero-dept{
+  font-family:var(--mono); font-size:0.75rem; letter-spacing:0.2em; text-transform:uppercase;
+  color:var(--muted); margin-bottom:28px; display:flex; align-items:center; gap:12px;
+}
+.hero-dept span{ width:36px; height:1px; background:var(--muted-2); display:inline-block; }
+.hero h1{
+  font-size:clamp(2.4rem, 7vw, 5.4rem);
+  line-height:1.02;
+  max-width:16ch;
+  background:linear-gradient(180deg, #ffffff 20%, #b9c2d6 100%);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.hero h1 em{ font-style:italic; color:var(--gold); -webkit-text-fill-color:var(--gold); }
+.hero-sub{
+  margin-top:26px; font-size:clamp(1rem,2vw,1.25rem); color:var(--muted); max-width:46ch;
+}
+.hero-cta{
+  margin-top:48px; display:inline-flex; align-items:center; gap:12px;
+  padding:16px 32px; border-radius:100px;
+  background:var(--gold); color:#171200; font-weight:600; font-size:0.95rem;
+  border:1px solid var(--gold);
+  box-shadow:0 0 0 0 rgba(242,193,78,0.5);
+  transition:transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
+}
+.hero-cta:hover{ transform:translateY(-3px); box-shadow:0 10px 40px rgba(242,193,78,0.35); }
+.hero-cta i{ transition:transform 0.3s var(--ease); }
+.hero-cta:hover i{ transform:translateY(3px); }
+
+.scroll-indicator{
+  position:absolute; bottom:36px; left:50%; transform:translateX(-50%);
+  display:flex; flex-direction:column; align-items:center; gap:10px;
+  color:var(--muted-2); font-family:var(--mono); font-size:0.68rem; letter-spacing:0.16em; text-transform:uppercase;
+}
+.scroll-indicator .stick{ width:1px; height:38px; background:linear-gradient(var(--muted-2), transparent); position:relative; overflow:hidden; }
+.scroll-indicator .stick::after{
+  content:''; position:absolute; top:-38px; left:0; width:100%; height:100%;
+  background:linear-gradient(var(--gold), transparent);
+  animation:dropline 2.2s ease-in-out infinite;
+}
+@keyframes dropline{ 0%{ top:-38px; } 100%{ top:38px; } }
+
+/* ============================================================
+   5. REVEAL ANIMATION UTILITY
+   ============================================================ */
+.reveal{ opacity:0; transform:translateY(28px); transition:opacity 0.8s var(--ease), transform 0.8s var(--ease); }
+.reveal.in{ opacity:1; transform:translateY(0); }
+.reveal-delay-1.in{ transition-delay:0.1s; }
+.reveal-delay-2.in{ transition-delay:0.2s; }
+.reveal-delay-3.in{ transition-delay:0.3s; }
+
+/* ============================================================
+   5b. TEAM SECTION
+   ============================================================ */
+.team-section{ padding-top:70px; padding-bottom:100px; }
+.team-inner{ max-width:720px; margin:0 auto; text-align:center; }
+.team-inner h2{ font-size:clamp(1.8rem,4vw,2.6rem); margin:14px 0 18px; }
+.team-inner .body-text{ margin:0 auto 44px; }
+.team-photo{ aspect-ratio:16/8; max-width:400px; margin:0 auto; }
+@media (max-width:600px){ .team-photo{ aspect-ratio:4/3; } }
+
+/* ============================================================
+   6. CHAPTER / SECTION SCAFFOLD
+   ============================================================ */
+.chapter-tag{
+  font-family:var(--mono); font-size:0.75rem; color:var(--muted-2); letter-spacing:0.1em;
+  display:block; margin-bottom:14px;
+}
+.chapter-tag b{ color:var(--gold); }
+
+.split{
+  display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center;
+}
+.split.reverse .split-media{ order:2; }
+@media (max-width:860px){
+  .split, .split.reverse .split-media{ order:0; }
+  .split{ grid-template-columns:1fr; gap:40px; }
+}
+
+.placeholder{
+  aspect-ratio:4/3; width:100%;
+  border:1px dashed var(--line-2);
+  border-radius:var(--radius);
+  background:
+    linear-gradient(160deg, var(--glass), transparent 60%),
+    var(--bg-2);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+  color:var(--muted-2);
+  position:relative; overflow:hidden;
+}
+.placeholder::before{
+  content:''; position:absolute; inset:0;
+  background:repeating-linear-gradient(135deg, transparent 0 18px, var(--glass) 18px 19px);
+  opacity:0.5;
+}
+.placeholder i{ font-size:2.2rem; color:var(--muted-2); position:relative; }
+.placeholder span{ font-family:var(--mono); font-size:0.75rem; letter-spacing:0.06em; position:relative; text-align:center; padding:0 20px; }
+
+.concept-tags{ display:flex; flex-wrap:wrap; gap:10px; margin-top:26px; }
+.concept-tag{
+  font-family:var(--mono); font-size:0.72rem; letter-spacing:0.02em;
+  padding:8px 14px; border-radius:100px; border:1px solid var(--line-2);
+  color:var(--teal); background:rgba(34,211,182,0.06);
+  display:inline-flex; align-items:center; gap:8px;
+}
+.concept-tag i{ font-size:0.7rem; }
+
+.icon-row{ display:flex; gap:18px; margin-top:30px; flex-wrap:wrap; }
+.icon-badge{
+  width:52px; height:52px; border-radius:14px; border:1px solid var(--line-2);
+  display:flex; align-items:center; justify-content:center; background:var(--glass);
+  color:var(--gold); font-size:1.1rem;
+  transition:transform 0.3s var(--ease), background 0.3s var(--ease);
+}
+.icon-badge:hover{ transform:translateY(-4px); background:var(--glass-2); }
+
+.body-text{ color:var(--muted); font-size:1.02rem; max-width:52ch; }
+.body-text + .body-text{ margin-top:14px; }
+
+/* alternating section tint */
+.tint-a{ background:linear-gradient(180deg, transparent, var(--bg-2) 40%, var(--bg-2) 60%, transparent); }
+
+/* ============================================================
+   7. GLASS CARDS (nature gallery, games)
+   ============================================================ */
+.card-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:26px; }
+.glass-card{
+  background:var(--glass);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:22px;
+  backdrop-filter:blur(10px);
+  transition:transform 0.4s var(--ease), border-color 0.4s var(--ease), box-shadow 0.4s var(--ease);
+}
+.glass-card:hover{ transform:translateY(-8px); border-color:var(--line-2); box-shadow:var(--shadow); }
+.glass-card .placeholder{ aspect-ratio:16/11; margin-bottom:18px; }
+.glass-card h3{ font-size:1.15rem; margin-bottom:8px; }
+.glass-card p{ color:var(--muted); font-size:0.9rem; }
+
+.game-card{ display:flex; flex-direction:column; }
+.game-card .placeholder{ aspect-ratio:16/10; }
+.game-btn{
+  margin-top:18px; align-self:flex-start;
+  font-family:var(--mono); font-size:0.75rem; letter-spacing:0.04em;
+  padding:11px 20px; border-radius:100px; border:1px solid var(--line-2);
+  background:transparent; color:var(--muted-2);
+  display:flex; align-items:center; gap:8px;
+  cursor:not-allowed;
+}
+.game-btn i{ font-size:0.7rem; }
+
+/* ============================================================
+   8. PHOTO SESSION
+   ============================================================ */
+.photo-section .placeholder{ aspect-ratio:21/9; max-width:920px; margin:0 auto; }
+.photo-cta{
+  display:flex; justify-content:center; margin-top:36px;
+}
+.capture-btn{
+  padding:16px 34px; border-radius:100px; font-weight:600; font-size:0.95rem;
+  background:linear-gradient(120deg,var(--violet),#a184ff);
+  color:#fff; border:none; display:inline-flex; align-items:center; gap:12px;
+  box-shadow:0 0 32px rgba(124,92,255,0.35);
+  opacity:1; cursor:pointer;
+}
+
+/* ============================================================
+   9. THANK YOU
+   ============================================================ */
+.thanks{
+  text-align:center; padding:160px 0 100px;
+}
+.thanks .eyebrow{ justify-content:center; }
+.thanks .eyebrow::before{ display:none; }
+.thanks h2{ font-size:clamp(2.2rem,5vw,3.6rem); max-width:16ch; margin:0 auto 20px; }
+.thanks p{ color:var(--muted); max-width:52ch; margin:0 auto; font-size:1.05rem; }
+.thanks-heart{ color:var(--gold); }
+
+footer{
+  border-top:1px solid var(--line);
+  padding:36px 0 50px;
+  position:relative; z-index:1;
+}
+.footer-row{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; }
+.footer-row p{ color:var(--muted-2); font-size:0.82rem; font-family:var(--mono); }
+
+/* ============================================================
+   10. BACK TO TOP
+   ============================================================ */
+#back-to-top{
+  position:fixed; bottom:28px; right:28px; z-index:998;
+  width:46px; height:46px; border-radius:50%;
+  background:var(--bg-3); border:1px solid var(--line-2); color:var(--ink);
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; visibility:hidden; transform:translateY(10px);
+  transition:opacity 0.3s var(--ease), transform 0.3s var(--ease), visibility 0.3s, background 0.3s;
+}
+#back-to-top.show{ opacity:1; visibility:visible; transform:translateY(0); }
+#back-to-top:hover{ background:var(--gold); color:#171200; }
+
+/* ============================================================
+   11. RESPONSIVE FINE-TUNING
+   ============================================================ */
+@media (max-width:520px){
+  .navbar{ padding:10px 16px; }
+  .nav-brand span.full{ display:none; }
+  .hero{ padding-top:120px; }
+  .icon-badge{ width:44px; height:44px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     LOADING SCREEN
+     ============================================================ -->
+<div id="loader">
+  <div class="loader-glyph">∑</div>
+  <div class="loader-bar"><div class="loader-bar-fill" id="loaderFill"></div></div>
+  <div class="loader-label">Calibrating the exhibition…</div>
+</div>
+
+<div id="scroll-progress"></div>
+
+<!-- ============================================================
+     BACKDROP CANVAS — floating symbols + neural connections
+     ============================================================ -->
+<canvas id="bg-canvas"></canvas>
+
+<!-- ============================================================
+     NAVIGATION
+     ============================================================ -->
+<nav class="navbar">
+  <div class="nav-brand"><i class="fa-solid fa-infinity"></i><span class="full">Mathematics&nbsp;of&nbsp;AI</span></div>
+  <ul class="nav-links">
+    <li><a href="#home" data-nav>Home</a></li>
+    <li><a href="#team" data-nav>Our Team</a></li>
+    <li><a href="#intro" data-nav>Introduction</a></li>
+    <li><a href="#meal" data-nav>Meal Planner</a></li>
+    <li><a href="#agri" data-nav>Agriculture</a></li>
+    <li><a href="#lift" data-nav>Smart Lift</a></li>
+    <li><a href="#nature" data-nav>Nature</a></li>
+    <li><a href="#games" data-nav>Games</a></li>
+    <li><a href="#photo" data-nav>Photo Session</a></li>
+    <li><a href="#thanks" data-nav>Thank You</a></li>
+  </ul>
+  <button class="nav-toggle" id="navToggle" aria-label="Open menu"><i class="fa-solid fa-bars"></i></button>
+</nav>
+
+<div id="mobile-menu">
+  <button id="mobile-menu-close" aria-label="Close menu"><i class="fa-solid fa-xmark"></i></button>
+  <a href="#home" data-nav>Home</a>
+  <a href="#team" data-nav>Our Team</a>
+  <a href="#intro" data-nav>Introduction</a>
+  <a href="#meal" data-nav>Meal Planner</a>
+  <a href="#agri" data-nav>Agriculture</a>
+  <a href="#lift" data-nav>Smart Lift</a>
+  <a href="#nature" data-nav>Nature</a>
+  <a href="#games" data-nav>Games</a>
+  <a href="#photo" data-nav>Photo Session</a>
+  <a href="#thanks" data-nav>Thank You</a>
+</div>
+
+<!-- ============================================================
+     HERO
+     ============================================================ -->
+<section class="hero" id="home">
+  <div class="hero-dept"><span></span>Immanuel Matriculation Higher Secondary School<span></span></div>
+  <h1>Mathematics Behind <em>Artificial</em> Intelligence</h1>
+  <p class="hero-sub">Discover how mathematics powers the intelligence behind modern AI — one equation, one algorithm, one idea at a time.</p>
+  <a href="#intro" class="hero-cta">Explore Exhibition <i class="fa-solid fa-arrow-down"></i></a>
+  <div class="scroll-indicator"><span>Scroll</span><div class="stick"></div></div>
+</section>
+
+<!-- ============================================================
+     TEAM — introduces the people behind the exhibition
+     ============================================================ -->
+<section id="team" class="team-section">
+  <div class="wrap">
+    <div class="team-inner">
+      <span class="eyebrow reveal" style="justify-content:center;">Meet the Team</span>
+      <h2 class="reveal reveal-delay-1">The Minds Behind This Exhibition</h2>
+      <p class="body-text reveal reveal-delay-2">Every chapter ahead was researched, designed, and built by students and faculty of the Department of Mathematics — proof that the ideas on these walls aren't abstract, they're something we practise ourselves.</p>
+      <img class="team-photo reveal reveal-delay-3" src="team.png" alt="Our Team" />
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SECTION 1 — INTRODUCTION
+     ============================================================ -->
+<section id="intro">
+  <div class="wrap">
+    <span class="chapter-tag reveal"><b>Chapter 01</b> · Introduction</span>
+    <div class="split">
+      <div class="split-media reveal">
+        <img src="int.png" alt="Introduction" class="placeholder" />
+      </div>
+      <div class="split-copy">
+        <h2 class="reveal">What is AI, really?</h2>
+        <p class="body-text reveal reveal-delay-1">Artificial Intelligence is the practice of teaching machines to recognise patterns, make predictions, and improve from experience — without being explicitly programmed for every situation.</p>
+        <p class="body-text reveal reveal-delay-2">Underneath every recommendation, every voice assistant, every self-driving decision, sits mathematics. Linear algebra represents information as vectors and matrices. Calculus tells a model how to improve, step by step. Probability lets it reason under uncertainty. Mathematics isn't a tool AI uses occasionally — it is the language AI is written in.</p>
+        <p class="body-text reveal reveal-delay-3">That is why mathematical thinking — the habit of breaking a problem into precise, testable steps — is the single most transferable skill in this exhibition. Everything you see ahead is that habit, applied.</p>
+        <div class="icon-row reveal reveal-delay-3">
+          <div class="icon-badge"><i class="fa-solid fa-square-root-variable"></i></div>
+          <div class="icon-badge"><i class="fa-solid fa-chart-line"></i></div>
+          <div class="icon-badge"><i class="fa-solid fa-brain"></i></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SECTION 2 — SMART MID-DAY MEAL PLANNER
+     ============================================================ -->
+<section id="meal" class="tint-a">
+  <div class="wrap">
+    <span class="chapter-tag reveal"><b>Chapter 02</b> · Smart Mid-Day Meal Planner</span>
+    <div class="split reverse">
+      <div class="split-media reveal">
+        <img src="meal.png" alt="Mid-Day Meal Planner" class="placeholder" />
+      </div>
+      <div class="split-copy">
+        <h2 class="reveal">Feeding thousands, precisely</h2>
+        <p class="body-text reveal reveal-delay-1">A mid-day meal programme has to satisfy nutrition guidelines, stay within a tight budget, and still taste good — for thousands of students, every single day. AI takes this juggling act and turns it into a solvable equation.</p>
+        <p class="body-text reveal reveal-delay-2">Every candidate menu is scored against protein, calorie, and micronutrient targets, and the system searches for the combination that meets every requirement at the lowest possible cost.</p>
+        <div class="concept-tags reveal reveal-delay-3">
+          <span class="concept-tag"><i class="fa-solid fa-gears"></i>Optimization</span>
+          <span class="concept-tag"><i class="fa-solid fa-chart-simple"></i>Statistics</span>
+          <span class="concept-tag"><i class="fa-solid fa-database"></i>Data Analysis</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SECTION 3 — SMART AGRICULTURE
+     ============================================================ -->
+<section id="agri">
+  <div class="wrap">
+    <span class="chapter-tag reveal"><b>Chapter 03</b> · Smart Agriculture</span>
+    <div class="split">
+      <div class="split-media reveal">
+        <img src="agri.png" alt="Smart Agriculture" class="placeholder" />
+      </div>
+      <div class="split-copy">
+        <h2 class="reveal">Reading the field before it speaks</h2>
+        <p class="body-text reveal reveal-delay-1">Soil sensors, satellite images, and years of rainfall records become a language AI can read — forecasting crop yield, spotting disease in leaf patterns, and timing irrigation to the day.</p>
+        <p class="body-text reveal reveal-delay-2">A regression model traces how yield has moved with rainfall and temperature in the past, and extends that curve into next season's forecast — turning years of scattered records into one dependable estimate.</p>
+        <div class="concept-tags reveal reveal-delay-3">
+          <span class="concept-tag"><i class="fa-solid fa-dice"></i>Probability</span>
+          <span class="concept-tag"><i class="fa-solid fa-chart-line"></i>Regression</span>
+          <span class="concept-tag"><i class="fa-solid fa-chart-simple"></i>Statistics</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SECTION 4 — SMART LIFT
+     ============================================================ -->
+<section id="lift" class="tint-a">
+  <div class="wrap">
+    <span class="chapter-tag reveal"><b>Chapter 04</b> · Smart Lift</span>
+    <div class="split reverse">
+      <div class="split-media reveal">
+        <img src="lift.png" alt="Smart Lift" class="placeholder" />
+      </div>
+      <div class="split-copy">
+        <h2 class="reveal">The shortest wait, calculated</h2>
+        <p class="body-text reveal reveal-delay-1">Every floor and shaft can be drawn as a graph — a network of possible paths. When you press call, the system compares every lift's position and direction, and dispatches whichever one reaches you fastest.</p>
+        <p class="body-text reveal reveal-delay-2">This is graph theory and optimisation, running quietly, thousands of times a day, in a box you barely notice.</p>
+        <div class="concept-tags reveal reveal-delay-3">
+          <span class="concept-tag"><i class="fa-solid fa-diagram-project"></i>Graph Theory</span>
+          <span class="concept-tag"><i class="fa-solid fa-gears"></i>Optimization</span>
+          <span class="concept-tag"><i class="fa-solid fa-sitemap"></i>Decision Algorithms</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SECTION 5 — MATHEMATICS IN NATURE
+     ============================================================ -->
+<section id="nature">
+  <div class="wrap">
+    <span class="chapter-tag reveal"><b>Chapter 05</b> · Mathematics in Nature</span>
+    <div class="split reverse">
+      <div class="split-media reveal">
+        <img src="nature.png" alt="Mathematics in Nature" class="placeholder" />
+      </div>
+      <div class="split-copy">
+        <h2 class="reveal">The patterns were always there</h2>
+        <p class="body-text reveal reveal-delay-1">Long before AI, mathematics was already writing the rulebook for the natural world. These are the patterns modern algorithms learned to recognise.</p>
+        <div class="concept-tags reveal reveal-delay-3">
+          <span class="concept-tag"><i class="fa-solid fa-diagram-project"></i>Fractals</span>
+          <span class="concept-tag"><i class="fa-solid fa-gears"></i>Fibonacci Sequence</span>
+          <span class="concept-tag"><i class="fa-solid fa-sitemap"></i>Symmetry</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SECTION 6 — GAME ZONE
+     ============================================================ -->
+<section id="games" class="tint-a">
+  <div class="wrap">
+    <span class="chapter-tag reveal"><b>Chapter 06</b> · Game Zone</span>
+    <div class="split reverse">
+      <div class="split-media reveal">
+        <img src="games.png" alt="Game Zone" class="placeholder" />
+      </div>
+      <div class="split-copy">
+        <h2 class="reveal">Play with the ideas</h2>
+        <p class="body-text reveal reveal-delay-1">Four hands-on stations let you test the same logic that AI uses — opening shortly at this exhibit.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SECTION 7 — AI PHOTO SESSION
+     ============================================================ -->
+<section id="photo" class="photo-section">
+  <div class="wrap">
+    <div class="section-head" style="margin-left:auto;margin-right:auto;text-align:center;">
+      <span class="chapter-tag reveal" style="justify-content:center;display:block;"><b>Chapter 07</b> · AI Photo Session</span>
+      <h2 class="reveal">Take the exhibition home with you</h2>
+      <p class="reveal reveal-delay-1" style="margin:0 auto;">Step in front of our AI-themed backdrop and capture a memory from today's exhibition.</p>
+    </div>
+    <div class="placeholder reveal reveal-delay-2">
+      <i class="fa-solid fa-camera-retro"></i>
+      <span>Exhibition Image — AI Photo Booth backdrop</span>
+    </div>
+    <div class="photo-cta reveal reveal-delay-3">
+      <input id="memoryCaptureInput" type="file" accept="image/*" capture="environment" hidden>
+      <button id="captureMemoriesBtn" class="capture-btn"><i class="fa-solid fa-camera"></i>Capture Memories</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SECTION 8 — THANK YOU
+     ============================================================ -->
+<section id="thanks" class="thanks">
+  <div class="wrap">
+    <span class="eyebrow reveal">Chapter 08 · Closing</span>
+    <h2 class="reveal reveal-delay-1">Thank you for visiting <span class="thanks-heart">♥</span></h2>
+    <p class="reveal reveal-delay-2">We hope you enjoyed exploring Mathematics Behind Artificial Intelligence. May every equation you saw today feel a little more alive.</p>
+    <p class="reveal reveal-delay-3" style="margin-top:26px;font-family:var(--mono);font-size:0.8rem;letter-spacing:0.08em;color:var(--muted-2);text-transform:uppercase;">Department of Mathematics</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap footer-row">
+    <p>© <span id="year"></span> Department of Mathematics — Mathematics Behind AI Exhibition</p>
+    <p>π ≈ 3.14159 &nbsp;·&nbsp; e ≈ 2.71828 &nbsp;·&nbsp; φ ≈ 1.61803</p>
+  </div>
+</footer>
+
+<button id="back-to-top" aria-label="Back to top"><i class="fa-solid fa-arrow-up"></i></button>
+
+<script>
+/* ============================================================
+   A. LOADING SCREEN
+   ============================================================ */
+(function(){
+  const fill = document.getElementById('loaderFill');
+  const loader = document.getElementById('loader');
+  let p = 0;
+  const t = setInterval(()=>{
+    p += Math.random()*18;
+    if(p>=100){ p=100; clearInterval(t); }
+    fill.style.width = p+'%';
+  }, 120);
+  window.addEventListener('load', ()=>{
+    setTimeout(()=>{ loader.classList.add('hidden'); }, 500);
+  });
+  setTimeout(()=>{ loader.classList.add('hidden'); }, 3200); // safety fallback
+})();
+
+/* ============================================================
+   B. FOOTER YEAR
+   ============================================================ */
+document.getElementById('year').textContent = new Date().getFullYear();
+
+/* ============================================================
+   C. SCROLL PROGRESS BAR
+   ============================================================ */
+const progressBar = document.getElementById('scroll-progress');
+function updateProgress(){
+  const h = document.documentElement;
+  const scrolled = (h.scrollTop) / (h.scrollHeight - h.clientHeight) * 100;
+  progressBar.style.width = scrolled + '%';
+}
+document.addEventListener('scroll', updateProgress, { passive:true });
+
+/* ============================================================
+   D. BACK TO TOP
+   ============================================================ */
+const backToTop = document.getElementById('back-to-top');
+document.addEventListener('scroll', ()=>{
+  backToTop.classList.toggle('show', window.scrollY > 700);
+}, { passive:true });
+backToTop.addEventListener('click', ()=> window.scrollTo({ top:0, behavior:'smooth' }));
+
+/* ============================================================
+   E. PHOTO CAPTURE
+   ============================================================ */
+const captureMemoriesBtn = document.getElementById('captureMemoriesBtn');
+const memoryCaptureInput = document.getElementById('memoryCaptureInput');
+
+captureMemoriesBtn.addEventListener('click', ()=> memoryCaptureInput.click());
+memoryCaptureInput.addEventListener('change', ()=>{
+  if(memoryCaptureInput.files && memoryCaptureInput.files.length){
+    const file = memoryCaptureInput.files[0];
+    console.log('Captured photo:', file.name);
+  }
+});
+
+/* ============================================================
+   F. MOBILE MENU
+   ============================================================ */
+const navToggle = document.getElementById('navToggle');
+const mobileMenu = document.getElementById('mobile-menu');
+const menuClose = document.getElementById('mobile-menu-close');
+navToggle.addEventListener('click', ()=> mobileMenu.classList.add('open'));
+menuClose.addEventListener('click', ()=> mobileMenu.classList.remove('open'));
+mobileMenu.querySelectorAll('a').forEach(a=> a.addEventListener('click', ()=> mobileMenu.classList.remove('open')));
+
+/* ============================================================
+   F. SCROLLSPY — highlight active nav link
+   ============================================================ */
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('[data-nav]');
+const spy = new IntersectionObserver((entries)=>{
+  entries.forEach(entry=>{
+    if(entry.isIntersecting){
+      const id = entry.target.getAttribute('id');
+      navLinks.forEach(l=>{
+        l.classList.toggle('active', l.getAttribute('href') === '#'+id);
+      });
+    }
+  });
+}, { rootMargin: '-40% 0px -55% 0px', threshold: 0 });
+sections.forEach(s=> spy.observe(s));
+
+/* ============================================================
+   G. REVEAL ON SCROLL
+   ============================================================ */
+const revealEls = document.querySelectorAll('.reveal');
+const revealObs = new IntersectionObserver((entries)=>{
+  entries.forEach(entry=>{
+    if(entry.isIntersecting){
+      entry.target.classList.add('in');
+      revealObs.unobserve(entry.target);
+    }
+  });
+}, { threshold:0.15 });
+revealEls.forEach(el=> revealObs.observe(el));
+
+/* ============================================================
+   H. BACKDROP CANVAS — floating math symbols, binary rain,
+      and a drifting neural network of connective lines.
+      This is the exhibition's signature visual: the network
+      IS the mathematics, not decoration on top of it.
+   ============================================================ */
+(function(){
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let W, H, DPR;
+
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = canvas.width = window.innerWidth * DPR;
+    H = canvas.height = window.innerHeight * DPR;
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const symbolsList = ['π','Σ','∫','√','Δ','θ','λ','∞'];
+  const isMobile = window.innerWidth < 700;
+  const nodeCount = isMobile ? 22 : 42;
+  const symbolCount = isMobile ? 6 : 11;
+  const binaryCount = isMobile ? 10 : 20;
+
+  function rand(a,b){ return a + Math.random()*(b-a); }
+
+  const nodes = Array.from({length:nodeCount}, ()=>({
+    x: Math.random(), y: Math.random(),
+    vx: rand(-0.00012,0.00012), vy: rand(-0.00009,0.00009),
+    r: rand(1.2,2.4)
+  }));
+
+  const symbols = Array.from({length:symbolCount}, ()=>({
+    ch: symbolsList[Math.floor(Math.random()*symbolsList.length)],
+    x: Math.random(), y: Math.random(),
+    vy: rand(0.00003,0.00008),
+    size: rand(20,42),
+    opacity: rand(0.05,0.16),
+    drift: rand(-0.00004,0.00004)
+  }));
+
+  const binaries = Array.from({length:binaryCount}, ()=>({
+    ch: Math.random() > 0.5 ? '1' : '0',
+    x: Math.random(), y: Math.random(),
+    vy: rand(0.00006,0.00014),
+    opacity: rand(0.06,0.14)
+  }));
+
+  const goldRGB = '242,193,78';
+  const violetRGB = '124,92,255';
+  const tealRGB = '34,211,182';
+
+  function step(){
+    ctx.clearRect(0,0,W,H);
+
+    // connective lines between nearby nodes -> neural network
+    for(let i=0;i<nodes.length;i++){
+      for(let j=i+1;j<nodes.length;j++){
+        const a = nodes[i], b = nodes[j];
+        const dx = (a.x-b.x)*W, dy = (a.y-b.y)*H;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        const maxDist = W*0.11;
+        if(dist < maxDist){
+          const alpha = (1 - dist/maxDist) * 0.10;
+          ctx.strokeStyle = `rgba(${violetRGB},${alpha})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(a.x*W, a.y*H);
+          ctx.lineTo(b.x*W, b.y*H);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // nodes
+    nodes.forEach(n=>{
+      if(!reduceMotion){
+        n.x += n.vx; n.y += n.vy;
+        if(n.x<0||n.x>1) n.vx*=-1;
+        if(n.y<0||n.y>1) n.vy*=-1;
+      }
+      ctx.fillStyle = `rgba(${tealRGB},0.5)`;
+      ctx.beginPath();
+      ctx.arc(n.x*W, n.y*H, n.r*DPR, 0, Math.PI*2);
+      ctx.fill();
+    });
+
+    // floating math symbols
+    symbols.forEach(s=>{
+      ctx.font = `${s.size*DPR}px Fraunces, serif`;
+      ctx.fillStyle = `rgba(${goldRGB},${s.opacity})`;
+      ctx.fillText(s.ch, s.x*W, s.y*H);
+      if(!reduceMotion){
+        s.y -= s.vy;
+        s.x += s.drift;
+        if(s.y < -0.05) s.y = 1.05;
+        if(s.x < -0.05) s.x = 1.05;
+        if(s.x > 1.05) s.x = -0.05;
+      }
+    });
+
+    // binary rain
+    binaries.forEach(b=>{
+      ctx.font = `${14*DPR}px 'JetBrains Mono', monospace`;
+      ctx.fillStyle = `rgba(244,242,236,${b.opacity})`;
+      ctx.fillText(b.ch, b.x*W, b.y*H);
+      if(!reduceMotion){
+        b.y -= b.vy;
+        if(b.y < -0.05) b.y = 1.05;
+      }
+    });
+
+    if(!reduceMotion) requestAnimationFrame(step);
+  }
+  step();
+})();
+</script>
+</body>
+</html>
